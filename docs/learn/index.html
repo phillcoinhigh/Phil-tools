@@ -130,6 +130,9 @@ pre.code { margin: 0; padding: 14px 16px; border: 1px solid var(--rule); backgro
 .foot-note { margin: 22px 0 0; font-size: 12.5px; color: var(--muted); max-width: 80ch; }
 @media (max-width: 640px) { .foot-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+/* an element marked hidden stays hidden, whatever else styles it */
+[hidden] { display: none !important; }
+
 .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 40px; align-items: start; padding-top: 28px; }
 .toc { position: sticky; top: 72px; max-height: calc(100vh - 92px); overflow: auto; font-size: 14.5px; }
 .toc summary { display: none; }
