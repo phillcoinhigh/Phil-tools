@@ -14,6 +14,7 @@ import { DRAWS } from "./giveaway-data";
 import { DEMO } from "./burn-data";
 import { CLIENT_WASM } from "./session-data";
 import { MUTATION } from "./mutation-data";
+import { DEMO as LOCKS } from "./locker-data";
 import { STOPS } from "./tour-data";
 import { CONTRACT } from "./shared";
 
@@ -106,6 +107,7 @@ if (DEMO?.totals?.burns) {
   set("bv-l", `coins burned in ${DEMO.totals.burns} ${DEMO.totals.burns === 1 ? "burn" : "burns"}, paid for with ${(Number(DEMO.totals.paid) / 1e9).toLocaleString("en-GB", { maximumFractionDigits: 4 })} SOL of fees`);
 }
 if (CLIENT_WASM) set("ss-val", Math.floor((CLIENT_WASM.length * 3) / 4 - (CLIENT_WASM.endsWith("==") ? 2 : CLIENT_WASM.endsWith("=") ? 1 : 0)).toLocaleString("en-GB"));
+if (LOCKS?.long) { set("lk-val", "200,000,000"); set("lk-l", "demo coins locked for six months on devnet. Lock any coin until a date: no cancel, no early unlock, and anyone can check."); }
 set("n-tour", String(STOPS.reduce((n, x) => n + x.parts.length, 0)));
 if (MUTATION) {
   set("mu-val", `${MUTATION.server.oursKills}/${MUTATION.server.mutants}`);

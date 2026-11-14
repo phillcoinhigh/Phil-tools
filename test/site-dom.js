@@ -26,12 +26,12 @@ const type = (w, el, v) => { el.value = v; el.dispatchEvent(new w.Event("input",
   p.d.getElementById("demo-flip").click();
   check("home: fixed demo runs", /hands back 10/.test(p.d.getElementById("demo-says").textContent), p.d.getElementById("demo-says").textContent);
   const hrefs = [...p.d.querySelectorAll("main a")].map((a) => a.getAttribute("href"));
-  check("home: every page is linked from the body", ["tour/", "learn/", "hacks/", "playground/", "onchain/", "session/", "giveaway/", "burn/", "mutation/", "otc/", "otc/#book", "changelog/", "conformance/", "fuzz/"].every((h) => hrefs.includes(h)), hrefs.join(" "));
+  check("home: every page is linked from the body", ["tour/", "learn/", "hacks/", "playground/", "onchain/", "session/", "giveaway/", "locker/", "burn/", "mutation/", "otc/", "otc/#book", "changelog/", "conformance/", "fuzz/"].every((h) => hrefs.includes(h)), hrefs.join(" "));
   check("home: every utility has its own link", ["locker", "hooks", "launchhooks", "stockrewards", "vesting", "multisig", "auction", "launch"].every((id) => hrefs.includes("library/#" + id)) && p.d.querySelectorAll("#made a").length === 10);
   check("home: daily figures are filled in from the data", /^\d/.test(p.d.getElementById("s-changes").textContent) && p.d.getElementById("s-grammar").textContent.startsWith("64 of 64") && /^[\d,]+$/.test(p.d.getElementById("s-fuzz").textContent) && /MB, built from commit/.test(p.d.getElementById("s-philc-l").textContent), [p.d.getElementById("s-changes").textContent, p.d.getElementById("s-grammar").textContent, p.d.getElementById("s-fuzz").textContent].join(" | "));
   {
     const menu = [...p.d.querySelectorAll(".site .menu nav a")].map((a) => a.getAttribute("href"));
-    const pages = ["tour/", "learn/", "playground/", "hacks/", "session/", "giveaway/", "burn/", "onchain/", "library/", "otc/", "mutation/", "fuzz/", "conformance/", "changelog/"];
+    const pages = ["tour/", "learn/", "playground/", "hacks/", "session/", "giveaway/", "locker/", "burn/", "onchain/", "library/", "otc/", "mutation/", "fuzz/", "conformance/", "changelog/"];
     check("home: the menu lists every page, in four groups", pages.every((h) => menu.includes(h)) && p.d.querySelectorAll(".site .menu h4").length === 5 && [...p.d.querySelectorAll(".site nav.full a")].map((a) => a.getAttribute("href")).join() === "./#start,./#chain,./#build,./#lab");
     check("home: the footer lists every page too", pages.every((h) => [...p.d.querySelectorAll(".foot-nav a")].some((a) => a.getAttribute("href") === h)));
     check("home: each section the header points at exists", ["start", "chain", "build", "lab", "coin"].every((id) => p.d.getElementById(id)));
@@ -346,6 +346,58 @@ const type = (w, el, v) => { el.value = v; el.dispatchEvent(new w.Event("input",
       check("giveaway: the entries can be searched", [...p.d.querySelectorAll("#entries li")].filter((li) => !li.hidden).length >= 1 && [...p.d.querySelectorAll("#entries li")].filter((li) => !li.hidden).length < g.entries.length);
       check("giveaway: no script errors", p.errors.length === 0, p.errors.join("|"));
     }
+  }
+
+  // Token locker
+  p = load("docs/locker/index.html", "https://example.test/locker/");
+  check("locker: the page loads and is plain about its limits", /has not been audited/.test(p.d.getElementById("limits").textContent) && /can still be replaced/.test(p.d.getElementById("upgrade-note").textContent) && /no third/i.test(p.d.getElementById("p-facts").textContent) && p.errors.length === 0, p.errors.join("|"));
+  if (fs.existsSync("locker/program.json")) {
+    const web3 = require("@solana/web3.js");
+    const program = JSON.parse(fs.readFileSync("locker/program.json", "utf8")).programId;
+    const me = web3.Keypair.generate(), mint = web3.Keypair.generate().publicKey, friend = web3.Keypair.generate().publicKey;
+    const TOKEN = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", now = Math.floor(Date.now() / 1000);
+    const mintData = Buffer.alloc(82); mintData.writeBigUInt64LE(1000000000000000n, 36); mintData[44] = 6; mintData[45] = 1;
+    const lockBytes = (o) => { const d = Buffer.alloc(320); d.write("PHILLOCK", 0); d[8] = o.state; d[9] = 254; d[10] = 6; d[11] = Buffer.byteLength(o.label); d.writeBigUInt64LE(o.amount, 16); d.writeBigInt64LE(BigInt(o.unlock), 24); d.writeBigUInt64LE(BigInt(now - 86400), 40);
+      mint.toBuffer().copy(d, 64); o.escrow.toBuffer().copy(d, 96); o.to.toBuffer().copy(d, 128); me.publicKey.toBuffer().copy(d, 160); new web3.PublicKey(TOKEN).toBuffer().copy(d, 192); d.write(o.label, 256); return d; };
+    const ready = { key: web3.Keypair.generate().publicKey, escrow: web3.Keypair.generate().publicKey };
+    const rows = [{ pubkey: web3.Keypair.generate().publicKey.toBase58(), account: { data: [lockBytes({ state: 1, label: "Team tokens", amount: 200000000000000n, unlock: now + 90 * 86400, escrow: web3.Keypair.generate().publicKey, to: me.publicKey }).toString("base64"), "base64"] } },
+      { pubkey: ready.key.toBase58(), account: { data: [lockBytes({ state: 1, label: "Marketing", amount: 50000000000000n, unlock: now - 60, escrow: ready.escrow, to: friend }).toString("base64"), "base64"] } }];
+    const calls = [];
+    p.w.fetch = async (url, init) => {
+      const q = JSON.parse(init.body); calls.push(q);
+      const result = { getAccountInfo: { value: { data: [mintData.toString("base64"), "base64"], owner: TOKEN } }, getProgramAccounts: rows, getTokenAccountBalance: { value: { amount: "400000000000000" } }, getLatestBlockhash: { value: { blockhash: web3.Keypair.generate().publicKey.toBase58() } },
+        getMinimumBalanceForRentExemption: 3118080, sendTransaction: "5".repeat(88), getSignatureStatuses: { value: [{ confirmationStatus: "confirmed", err: null }] } }[q.method];
+      return { ok: true, status: 200, json: async () => ({ result }) };
+    };
+    const settle = async (el) => { for (let i = 0; i < 60 && el.classList.contains("busy"); i++) await wait(25); await wait(40); };
+    p.d.getElementById("coin").value = mint.toBase58(); p.d.getElementById("find").click(); await settle(p.d.getElementById("find"));
+    const gpa = calls.find((q) => q.method === "getProgramAccounts");
+    check("locker: checking a coin asks Solana for this program's locks of that coin, with no wallet", gpa.params[0] === program && gpa.params[1].filters[0].dataSize === 320 && gpa.params[1].filters[1].memcmp.offset === 64 && gpa.params[1].filters[1].memcmp.bytes === mint.toBase58());
+    check("locker: each lock shows amount, share of supply, date, and where it goes", p.d.querySelectorAll("#locks .lock").length === 2 && /250,000,000/.test(p.d.getElementById("summary").textContent) && /25% of its supply/.test(p.d.getElementById("summary").textContent) && /20% of supply/.test(p.d.querySelector("#locks .lock").textContent) && /Team tokens/.test(p.d.querySelector("#locks .lock").textContent) && /in 89 days|in 90 days/.test(p.d.querySelector("#locks .lock .count").textContent) && p.d.querySelectorAll("#locks .st.ready").length === 1 && p.d.querySelectorAll("#locks button.release").length === 1);
+    // Locking, with a stand-in wallet that signs like a real one.
+    p.w.phantom = { solana: { connect: async () => ({ publicKey: me.publicKey }), signTransaction: async (tx) => { tx.partialSign(me); return tx; } } };
+    p.d.getElementById("connect").click(); await wait(80);
+    check("locker: connecting a wallet opens the form, with the wallet as the receiver and its balance shown", !p.d.getElementById("form").hidden && p.d.getElementById("m-to").value === me.publicKey.toBase58() && /holds 400,000,000/.test(p.d.getElementById("m-have").textContent));
+    const set = (id, v) => { p.d.getElementById(id).value = v; };
+    set("m-amount", "999,999,999,999"); p.d.getElementById("review-go").click(); await wait(60);
+    check("locker: more than the wallet holds is refused before anything is signed", p.d.getElementById("review").classList.contains("bad") && /less than that/.test(p.d.getElementById("review").textContent) && p.d.getElementById("lock-go").hidden);
+    set("m-amount", "1,500,000.5"); set("m-label", "Test lock"); p.d.querySelector('#quick button[data-d="30"]').click(); p.d.getElementById("review-go").click(); await wait(60);
+    check("locker: the review says what will happen in plain words and needs a tick before the button works", /1,500,000\.5/.test(p.d.getElementById("review").textContent) && /your own wallet/.test(p.d.getElementById("review").textContent) && !p.d.getElementById("lock-go").hidden && p.d.getElementById("lock-go").disabled);
+    p.d.getElementById("agree").checked = true; p.d.getElementById("agree").dispatchEvent(new p.w.Event("change"));
+    p.d.getElementById("lock-go").click(); for (let i = 0; i < 80 && !calls.some((q) => q.method === "getSignatureStatuses"); i++) await wait(25); await wait(120);
+    const sent = web3.Transaction.from(Buffer.from(calls.find((q) => q.method === "sendTransaction").params[0], "base64"));
+    const lockIx = sent.instructions[2], lockKey = sent.instructions[0].keys[1].pubkey;
+    const [authority, bump] = web3.PublicKey.findProgramAddressSync([Buffer.from("lock"), lockKey.toBuffer()], new web3.PublicKey(program));
+    const rec = lockIx.data.subarray(lockIx.data.length - (55 + 9));
+    check("locker: the transaction makes the lock account, its escrow, and the lock, and is fully signed", sent.instructions.length === 3 && sent.instructions[0].programId.equals(web3.SystemProgram.programId) && sent.instructions[1].programId.toBase58() === "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" && sent.instructions[1].keys[2].pubkey.equals(authority) && lockIx.programId.toBase58() === program && sent.verifySignatures() && sent.signatures.length === 2 && sent.feePayer.equals(me.publicKey));
+    check("locker: the terms sent are the terms reviewed", lockIx.data[0] === 1 && rec.subarray(0, 5).toString() === "LOCK1" && rec.readBigUInt64LE(5) === 1500000500000n && Math.abs(Number(rec.readBigInt64LE(13)) - (now + 30 * 86400)) < 120 && rec.subarray(21, 53).equals(me.publicKey.toBuffer()) && rec[53] === bump && rec.subarray(55).toString() === "Test lock" && lockIx.keys[4].pubkey.equals(me.publicKey) && lockIx.keys[4].isSigner && lockIx.keys[1].pubkey.equals(mint));
+    check("locker: after Solana confirms, the page gives a proof link for the coin", /Locked\./.test(p.d.getElementById("done").textContent) && p.d.querySelector("#done a[href*='?coin=']").getAttribute("href").endsWith("?coin=" + mint.toBase58()));
+    // Releasing the lock that is ready.
+    calls.length = 0; p.d.querySelector("#locks button.release").click(); for (let i = 0; i < 80 && !calls.some((q) => q.method === "getSignatureStatuses"); i++) await wait(25); await wait(80);
+    const rel = web3.Transaction.from(Buffer.from(calls.find((q) => q.method === "sendTransaction").params[0], "base64"));
+    const relIx = rel.instructions[1];
+    check("locker: releasing sends the coins only to the named receiver's own token account", rel.instructions.length === 2 && rel.instructions[0].keys[2].pubkey.equals(friend) && relIx.programId.toBase58() === program && relIx.data[0] === 2 && relIx.keys[0].pubkey.equals(ready.key) && relIx.keys[2].pubkey.equals(ready.escrow) && relIx.keys[3].pubkey.equals(rel.instructions[0].keys[1].pubkey) && rel.verifySignatures());
+    check("locker: no script errors", p.errors.length === 0, p.errors.join("|"));
   }
 
   // Burn vault

@@ -1,0 +1,21 @@
+{
+ "program": "BABLKeToWgX54ALFGhHUTo4AvXfpmFbGUYwf8QSiDhzM",
+ "wallet": "QjySo3L33gPqJsBcEjx4pchjkmtN9DoMeyQrx1W5TnA",
+ "mint": "FRav6Fd23ToC9Wq9SV3ZovryZ56LLf8KG5gmcPYQGn56",
+ "decimals": 6,
+ "supply": "1000000000000000",
+ "long": {
+  "lock": "CR7eUoBuUAmiRVjSBUpBFXMM457VNrz4pezDgRXbKBD8",
+  "locked": "33rieV251i2znVduHQ79DbCqNvVguDdthWVZAPWGLr1ykxNfmKBXUowE6ZLsmSGSt7Ri4FXKsgEwHCK913zMT5qZ"
+ },
+ "short": [
+  {
+   "day": "2026-11-14",
+   "lock": "28WPgCvYm14HhbntxrEagcFDoaLv8duhZtRFmwoxpPKi",
+   "locked": "4gm1W2mUsKHoFySfC9Av2PUr8oLvWg8JEGxqLtp1t9fS9aZmBUzVgNmjVqxnVskQscX22KzoYPVFTXAkf6HoLX8c",
+   "released": "4stWTshp87UHnBumZieEAx9E8P5KQBUDdGtsr6voxr5PkQgKN6fDgT8LUQyR7LRD9oZQJ68F5dqZE3C3v9wJPnXo",
+   "lockUnits": 28890,
+   "releaseUnits": 15531
+  }
+ ]
+}

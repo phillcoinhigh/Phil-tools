@@ -119,3 +119,6 @@ pre.code { margin: 0; padding: 14px 16px; border: 1px solid var(--rule); backgro
 .foot-nav a:hover { color: var(--accent); }
 .foot-note { margin: 22px 0 0; font-size: 12.5px; color: var(--muted); max-width: 80ch; }
 @media (max-width: 640px) { .foot-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* an element marked hidden stays hidden, whatever else styles it */
+[hidden] { display: none !important; }
