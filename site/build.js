@@ -11,7 +11,7 @@ const FONTS = '<link rel="preconnect" href="https://fonts.googleapis.com"><link 
 // Every page, grouped the way the home page groups them. The same list feeds the header, the menu and the footer.
 const GROUPS = [
   ["start", "Learn", [["tour", "tour/", "The tour, runnable"], ["learn", "learn/", "Learn Phil"], ["playground", "playground/", "Playground"], ["hacks", "hacks/", "Famous hacks"]]],
-  ["chain", "On chain", [["session", "session/", "Phil at both ends"], ["giveaway", "giveaway/", "Giveaways"], ["burnvault", "burn/", "Burn vault"], ["onchain", "onchain/", "Phil on Solana"]]],
+  ["chain", "On chain", [["session", "session/", "Phil at both ends"], ["giveaway", "giveaway/", "Giveaways"], ["locker", "locker/", "Token locker"], ["burnvault", "burn/", "Burn vault"], ["onchain", "onchain/", "Phil on Solana"]]],
   ["build", "Build", [["library", "library/", "Token utilities"], ["otc", "otc/", "OTC desk"]]],
   ["lab", "Lab", [["mutation", "mutation/", "Mutation analysis"], ["fuzz", "fuzz/", "Compiler fuzzer"], ["conformance", "conformance/", "Conformance report"], ["changelog", "changelog/", "What changed in Phil"]]],
 ];
@@ -61,3 +61,4 @@ page("onchain", "docs/onchain/index.html", "../", "onchain");
 page("session", "docs/session/index.html", "../", "session");
 page("giveaway", "docs/giveaway/index.html", "../", "giveaway");
 page("burnvault", "docs/burn/index.html", "../", "burnvault");
+page("locker", "docs/locker/index.html", "../", "locker");

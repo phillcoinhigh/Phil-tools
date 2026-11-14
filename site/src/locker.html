@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Token locker: lock a coin, prove it</title>
+<meta name="description" content="Lock any Solana coin until a date. No cancel, no early unlock, no owner. Anyone can check a coin's locks without a wallet. Gated by Phil's upload server.">
+__FONTS__
+<style>
+/*__CSS__*/
+.top { padding: 38px 0 8px; }
+.top h1 { font: 600 clamp(28px, 5vw, 44px)/1.06 var(--font-mark); letter-spacing: -.04em; margin: 0 0 14px; text-wrap: balance; }
+.top p { margin: 0 0 10px; max-width: 66ch; font-size: 17px; }
+.net { display: inline-block; font: 600 11.5px var(--font-mark); border: 1px solid var(--ink); padding: 3px 10px; border-radius: 999px; margin-bottom: 14px; }
+h2.sec { font: 600 13px var(--font-mark); letter-spacing: .02em; text-transform: uppercase; margin: 40px 0 0; padding-bottom: 10px; border-bottom: 1px solid var(--ink); }
+.lead { margin: 12px 0 0; color: var(--muted); max-width: 70ch; font-size: 15px; }
+.panel { border: 1px solid var(--ink); background: var(--sheet); border-radius: 18px; padding: 18px 18px 20px; margin-top: 18px; }
+.panel h2 { margin: 0 0 6px; font: 600 21px var(--font-mark); letter-spacing: -.02em; } .panel > p { margin: 0 0 12px; max-width: 64ch; }
+label.f { display: block; font: 600 13px var(--font-body); margin: 12px 0 4px; }
+input.t, select.t { width: 100%; box-sizing: border-box; border: 1px solid var(--ink); background: var(--code-bg); color: var(--ink); font: 15px var(--font-code); padding: 10px 12px; border-radius: 10px; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+.quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; } .quick button { border: 1px solid var(--rule); background: none; border-radius: 999px; padding: 4px 11px; font: 600 12.5px var(--font-body); color: var(--ink); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
+.hint { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+.say { margin: 14px 0 0; padding: 12px 14px; border: 1px solid var(--ink); border-radius: 12px; font-size: 15px; background: var(--code-bg); } .say b { font-family: var(--font-code); }
+.say.bad { border-color: var(--bad); color: var(--bad); } .say.good { border-color: var(--good); }
+.agree { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 14.5px; } .agree input { margin-top: 3px; width: 18px; height: 18px; }
+.locks { display: grid; gap: 12px; margin-top: 14px; }
+.lock { border: 1px solid var(--ink); border-radius: 14px; background: var(--paper); overflow: hidden; }
+.lock .hd { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--rule); }
+.lock .hd b { font: 600 20px var(--font-code); letter-spacing: -.02em; } .lock .hd span { font-size: 13px; color: var(--muted); }
+.lock .st { display: inline-block; font: 600 11.5px var(--font-mark); padding: 2px 9px; border-radius: 999px; border: 1px solid var(--ink); }
+.lock .st.locked { background: var(--ink); color: var(--paper); } .lock .st.ready { background: var(--gold, #e8b23a); color: #15171a; } .lock .st.released { color: var(--muted); border-color: var(--rule); }
+.lock dl { margin: 0; display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 6px 12px; padding: 12px 14px; font-size: 14px; } .lock dt { color: var(--muted); font-size: 13px; } .lock dd { margin: 0; overflow-wrap: anywhere; } .lock dd a, .lock dd code { font: 12.5px var(--font-code); background: none; padding: 0; }
+.lock .count { font: 600 15px var(--font-code); }
+.lock .act { padding: 0 14px 14px; }
+.bar { height: 8px; background: var(--rule); border-radius: 99px; overflow: hidden; margin-top: 6px; } .bar i { display: block; height: 100%; background: var(--accent); }
+.how { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+.how > li { counter-increment: s; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+.how > li::before { content: "0" counter(s); font: 12px var(--font-code); color: var(--muted); padding-top: 3px; }
+.how h3 { margin: 0 0 4px; font-size: 17px; } .how p { margin: 0; max-width: 70ch; color: var(--muted); }
+.limits { margin: 12px 0 0; padding-left: 20px; max-width: 72ch; } .limits li { margin: 7px 0; }
+.facts { margin: 14px 0 0; padding: 0; list-style: none; border: 1px solid var(--ink); border-radius: 14px; background: var(--sheet); }
+.facts li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; padding: 9px 16px; border-top: 1px solid var(--rule); font-size: 14.5px; } .facts li:first-child { border-top: 0; }
+.facts li > span:first-child { font-size: 13.5px; color: var(--muted); } .facts a, .facts code { font: 13px var(--font-code); overflow-wrap: anywhere; background: none; padding: 0; }
+.flash { animation: flash 1s ease-out; }
+@media (max-width: 640px) { .two { grid-template-columns: minmax(0, 1fr); } .lock dl { grid-template-columns: minmax(0, 1fr); gap: 1px; } .lock dt { margin-top: 8px; } .facts li { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+</style>
+</head>
+<body>
+__HEADER__
+<main class="wrap">
+  <div class="top">
+    <span class="net" id="net">Solana devnet</span>
+    <h1>Lock a coin. Prove it.</h1>
+    <p>Lock any amount of a Solana coin until a date you choose. Until then nobody can move it, including you. When the date comes, it goes to the wallet you named and nowhere else.</p>
+    <p class="muted" style="font-size:15px">Anyone can check a coin's locks here without a wallet. Every lock and every release is gated by Phil's upload server, running on Solana.</p>
+  </div>
+
+  <section class="panel" aria-labelledby="find-h">
+    <h2 id="find-h">Check a coin's locks</h2>
+    <p>Paste a coin's address. This reads straight from Solana and needs no wallet.</p>
+    <label class="f" for="coin">Coin address (mint)</label>
+    <input class="t" id="coin" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste a mint address">
+    <div class="row"><button class="btn" id="find" type="button">Show its locks</button><button class="btn ghost small" id="share" type="button" hidden>Copy a link to this</button><span class="muted" id="find-note" role="status"></span></div>
+    <div id="found" hidden><div class="say" id="summary"></div><div class="locks" id="locks"></div></div>
+  </section>
+
+  <section class="panel" aria-labelledby="make-h">
+    <h2 id="make-h">Lock tokens</h2>
+    <p>You need a Solana wallet set to <b id="net-name">devnet</b>. Your wallet only signs; this page sends the transaction.</p>
+    <div class="row" style="margin-top:0"><button class="btn" id="connect" type="button">Connect wallet</button><span class="muted" id="who" role="status"></span></div>
+    <p class="hint" id="no-wallet" hidden></p>
+    <div id="form" hidden>
+      <label class="f" for="m-coin">Coin address (mint)</label>
+      <input class="t" id="m-coin" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <p class="hint" id="m-have"></p>
+      <div class="two">
+        <div><label class="f" for="m-amount">Amount to lock</label><input class="t" id="m-amount" inputmode="decimal" autocomplete="off" placeholder="1000000"></div>
+        <div><label class="f" for="m-until">Locked until</label><input class="t" id="m-until" type="datetime-local"></div>
+      </div>
+      <div class="quick" id="quick"><button type="button" data-d="7">1 week</button><button type="button" data-d="30">1 month</button><button type="button" data-d="182">6 months</button><button type="button" data-d="365">1 year</button></div>
+      <label class="f" for="m-to">Who receives it at the end</label>
+      <input class="t" id="m-to" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <p class="hint">Your own wallet unless you change it. This cannot be changed later.</p>
+      <label class="f" for="m-label">A short name for this lock (optional, public)</label>
+      <input class="t" id="m-label" maxlength="32" autocomplete="off" placeholder="Team tokens">
+      <div class="say" id="review" hidden></div>
+      <label class="agree" id="agree-wrap" hidden><input type="checkbox" id="agree"><span>I understand that this cannot be cancelled, changed or unlocked early by anyone.</span></label>
+      <div class="row"><button class="btn" id="review-go" type="button">Review</button><button class="btn" id="lock-go" type="button" hidden disabled>Lock it</button><span class="muted" id="lock-note" role="status"></span></div>
+      <div class="say" id="done" hidden></div>
+    </div>
+  </section>
+
+  <h2 class="sec">How it works</h2>
+  <ol class="how">
+    <li><div><h3>The terms go through Phil</h3><p>The amount, the date and the receiving wallet are uploaded to the program in Phil's upload protocol. Phil's server checks them byte for byte. If it accepts, Solana's own token program moves the coins into an escrow account, and the terms are written once.</p></div></li>
+    <li><div><h3>Nobody holds the key to the escrow</h3><p>The escrow is controlled by an address that only the locker program can sign for. The program has two instructions: lock, and release after the date. There is no third.</p></div></li>
+    <li><div><h3>Anyone can release it when the time comes</h3><p>After the date, any wallet can send the release. The coins can only go to the receiving wallet named at the start, so it does not matter who presses the button.</p></div></li>
+  </ol>
+
+  <h2 class="sec">Before you rely on it</h2>
+  <ul class="limits" id="limits">
+    <li><b>This is on devnet and has not been audited.</b> It is tested here, against Solana's real token program, and on devnet, but nobody independent has reviewed it. Do not treat it as safe for real value yet.</li>
+    <li id="upgrade-note"><b>The program can still be replaced.</b> On devnet our deploy key can upgrade it, which is how we fix things while building. A lock is only as strong as its program, so "nobody can unlock early" becomes fully true only once the program is made permanent. We will say so here when it is.</li>
+    <li><b>A coin's issuer may still have powers over it.</b> If a coin has a freeze authority, its issuer can freeze the escrow and the coins would be stuck. Coins whose issuer can move anyone's balance, or that need a transfer hook, are refused.</li>
+    <li><b>One date, all at once.</b> There is no gradual release yet.</li>
+    <li>Locking supply does not make a coin safe or valuable. It shows one thing: these coins cannot move before this date.</li>
+  </ul>
+
+  <h2 class="sec">Where Phil is in this</h2>
+  <p class="lead">Locking and releasing are both uploads through <code>UploadServer</code>, the function Phil's compiler backend emits. Phil's code checks the handshake, the policy and that the bytes match their declared SHA-256, and only then does the locker act. The locker's own logic (the escrow, the checks on the coin, calling the token program) is ours and is not Phil.</p>
+  <ul class="facts" id="p-facts"></ul>
+  <p class="lead">The program and its tests are in <a href="__REPO__/tree/main/locker">locker/</a>. This is a community project and is not affiliated with Phil or Solana.</p>
+</main>
+__FOOTER__
+<script>/*__BUNDLE__*/</script>
+</body>
+</html>

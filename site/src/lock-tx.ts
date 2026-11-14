@@ -1,5 +1,6 @@
 // Builds the locker's transactions. The website (signed by a wallet) and the workflow script
 // (signed by a key) both use exactly this, so what is proven on a validator is what a visitor sends.
+import { Buffer } from "buffer";
 import { PublicKey, SystemProgram, TransactionInstruction, Keypair } from "@solana/web3.js";
 import { lockData, releaseData, LOCK_SIZE } from "./lock";
 
