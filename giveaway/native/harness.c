@@ -70,32 +70,72 @@ struct sol_instruction { const uint8_t *program_id; struct sol_meta *accounts; u
 struct sol_account_info { const uint8_t *key; uint64_t *lamports; uint64_t data_len; uint8_t *data; const uint8_t *owner; uint64_t rent_epoch; _Bool is_signer; _Bool is_writable; _Bool executable; };
 static const uint8_t TOKEN[32] = { 0x06, 0xdd, 0xf6, 0xe1, 0xd7, 0x65, 0xa1, 0x93, 0xd9, 0xcb, 0xe1, 0x46, 0xce, 0xeb, 0x79, 0xac, 0x1c, 0xb4, 0x85, 0xed, 0x5f, 0x5b, 0x37, 0x91, 0x3a, 0x8c, 0xf5, 0x85, 0x7e, 0xff, 0x00, 0xa9 };
 static const uint8_t TOKEN_2022[32] = { 0x06, 0xdd, 0xf6, 0xe1, 0xee, 0x75, 0x8f, 0xde, 0x18, 0x42, 0x5d, 0xbc, 0xe4, 0x6c, 0xcd, 0xda, 0xb6, 0x1a, 0xfc, 0x4d, 0x83, 0xb9, 0x0d, 0x27, 0xfe, 0xbd, 0xf9, 0x28, 0xd8, 0xa1, 0x8b, 0xfc };
-uint64_t sol_invoke_signed_c(const struct sol_instruction *ix, const struct sol_account_info *infos, int n, const void *seeds, int seed_count) {
-  const struct sol_account_info *found[3] = { 0, 0, 0 };
-  uint64_t amount, held, supply;
-  (void)seeds; (void)seed_count;
-  if (memcmp(ix->program_id, TOKEN, 32) && memcmp(ix->program_id, TOKEN_2022, 32)) { printf("LOG (harness) call to a program that is not modelled\n"); return 1; }
-  if (ix->data_len != 9 || ix->data[0] != 8 || ix->account_len != 3) { printf("LOG (harness) only Burn is modelled\n"); return 1; }
-  for (int m = 0; m < 3; m++) for (int i = 0; i < n; i++) if (!memcmp(infos[i].key, ix->accounts[m].pubkey, 32)) { found[m] = &infos[i]; break; }
-  if (!found[0] || !found[1] || !found[2]) return 2;
-  // A token account: mint 0..32, owner 32..64, amount 64..72. A mint: supply at 36..44.
-  if (found[0]->data_len < 72 || found[1]->data_len < 44) return 3;
-  if (memcmp(found[0]->owner, ix->program_id, 32) || memcmp(found[1]->owner, ix->program_id, 32)) return 4;     /* both belong to this token program */
-  if (memcmp(found[0]->data, found[1]->key, 32)) return 5;                                                       /* the account holds this coin */
-  if (memcmp(found[0]->data + 32, found[2]->key, 32) || !found[2]->is_signer || !ix->accounts[2].is_signer) return 6;   /* its owner signed */
-  if (!found[0]->is_writable || !found[1]->is_writable) return 7;
-  memcpy(&amount, ix->data + 1, 8); memcpy(&held, found[0]->data + 64, 8); memcpy(&supply, found[1]->data + 36, 8);
-  if (held < amount) { printf("LOG (token program) insufficient funds\n"); return 8; }
-  held -= amount; supply -= amount;
-  memcpy(found[0]->data + 64, &held, 8); memcpy(found[1]->data + 36, &supply, 8);
+static uint8_t program_id[32];
+struct sol_seed { const uint8_t *addr; uint64_t len; };
+struct sol_seeds { const struct sol_seed *addr; uint64_t len; };
+// A program-derived address is the SHA-256 of the seeds, the program's address and a fixed marker.
+// (Solana also requires the result not to be a valid public key; the tests pick seeds accordingly
+// and the real rule is exercised on the local validator.)
+uint64_t sol_create_program_address(const struct sol_seed *seeds, int n, const uint8_t *program, uint8_t *out) {
+  struct sol_bytes parts[18];
+  if (n > 16) return 1;
+  for (int i = 0; i < n; i++) { parts[i].addr = seeds[i].addr; parts[i].len = seeds[i].len; }
+  parts[n].addr = program; parts[n].len = 32;
+  parts[n + 1].addr = (const uint8_t *)"ProgramDerivedAddress"; parts[n + 1].len = 21;
+  return sol_sha256(parts, (uint64_t)n + 2, out);
+}
+static const struct sol_account_info *find(const struct sol_account_info *infos, int n, const uint8_t *key) { for (int i = 0; i < n; i++) if (!memcmp(infos[i].key, key, 32)) return &infos[i]; return 0; }
+// Did this account sign: either the transaction's own signer, or an address the calling program derived and signs for.
+static int signed_by(const struct sol_account_info *a, const struct sol_meta *m, const struct sol_seeds *seeds, int seed_count) {
+  uint8_t derived[32];
+  if (!m->is_signer) return 0;
+  if (a->is_signer) return 1;
+  for (int i = 0; i < seed_count; i++) if (!sol_create_program_address(seeds[i].addr, (int)seeds[i].len, program_id, derived) && !memcmp(derived, a->key, 32)) return 1;
   return 0;
+}
+// The token programs, for the two instructions these programs use: Burn (8) and TransferChecked (12).
+uint64_t sol_invoke_signed_c(const struct sol_instruction *ix, const struct sol_account_info *infos, int n, const struct sol_seeds *seeds, int seed_count) {
+  uint64_t amount, held, other;
+  if (memcmp(ix->program_id, TOKEN, 32) && memcmp(ix->program_id, TOKEN_2022, 32)) { printf("LOG (harness) call to a program that is not modelled\n"); return 1; }
+  if (ix->data_len == 9 && ix->data[0] == 8 && ix->account_len == 3) {
+    const struct sol_account_info *acct = find(infos, n, ix->accounts[0].pubkey), *mint = find(infos, n, ix->accounts[1].pubkey), *auth = find(infos, n, ix->accounts[2].pubkey);
+    if (!acct || !mint || !auth) return 2;
+    if (acct->data_len < 72 || mint->data_len < 44) return 3;
+    if (memcmp(acct->owner, ix->program_id, 32) || memcmp(mint->owner, ix->program_id, 32)) return 4;
+    if (memcmp(acct->data, mint->key, 32)) return 5;
+    if (memcmp(acct->data + 32, auth->key, 32) || !signed_by(auth, &ix->accounts[2], seeds, seed_count)) return 6;
+    if (!acct->is_writable || !mint->is_writable) return 7;
+    memcpy(&amount, ix->data + 1, 8); memcpy(&held, acct->data + 64, 8); memcpy(&other, mint->data + 36, 8);
+    if (held < amount) { printf("LOG (token program) insufficient funds\n"); return 8; }
+    held -= amount; other -= amount;
+    memcpy(acct->data + 64, &held, 8); memcpy(mint->data + 36, &other, 8);
+    return 0;
+  }
+  if (ix->data_len == 10 && ix->data[0] == 12 && ix->account_len == 4) {
+    const struct sol_account_info *from = find(infos, n, ix->accounts[0].pubkey), *mint = find(infos, n, ix->accounts[1].pubkey), *to = find(infos, n, ix->accounts[2].pubkey), *auth = find(infos, n, ix->accounts[3].pubkey);
+    if (!from || !mint || !to || !auth) return 2;
+    if (from->data_len < 109 || to->data_len < 109 || mint->data_len < 45) return 3;
+    if (memcmp(from->owner, ix->program_id, 32) || memcmp(to->owner, ix->program_id, 32) || memcmp(mint->owner, ix->program_id, 32)) return 4;
+    if (memcmp(from->data, mint->key, 32) || memcmp(to->data, mint->key, 32)) return 5;                 /* both hold this coin */
+    if (ix->data[9] != mint->data[44]) return 9;                                                         /* the decimals were checked */
+    if (memcmp(from->data + 32, auth->key, 32) || !signed_by(auth, &ix->accounts[3], seeds, seed_count)) return 6;
+    if (!from->is_writable || !to->is_writable || from->data[108] != 1 || to->data[108] != 1) return 7;  /* writable, and not frozen */
+    memcpy(&amount, ix->data + 1, 8); memcpy(&held, from->data + 64, 8); memcpy(&other, to->data + 64, 8);
+    if (held < amount) { printf("LOG (token program) insufficient funds\n"); return 8; }
+    held -= amount; other += amount;
+    memcpy(from->data + 64, &held, 8); memcpy(to->data + 64, &other, 8);
+    return 0;
+  }
+  printf("LOG (harness) only Burn and TransferChecked are modelled\n");
+  return 1;
 }
 
 static size_t unhex(const char *s, uint8_t *out) { size_t n = 0; if (s[0] == '-') return 0; for (; s[0] && s[1] && s[0] != '\n'; s += 2) { unsigned v; sscanf(s, "%2x", &v); out[n++] = (uint8_t)v; } return n; }
 
 int main(void) {
   static char line[200000];
-  static uint8_t input[400000], ix[4096], program[32], tmp[100000];
+  static uint8_t input[400000], ix[4096], tmp[100000];
+  uint8_t *program = program_id;
   uint8_t *accounts[8]; uint8_t *lamports[8]; size_t lens[8]; int n = 0;
   uint8_t *p = input + 8;
   size_t ix_len = 0;
